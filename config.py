@@ -144,7 +144,7 @@ class Config:
     def context_vector_size(self) -> int:
         # The context vector is actually a concatenation of the embedded
         # source & target vectors and the embedded path vector.
-        return self.PATH_EMBEDDINGS_SIZE + 2 * self.TOKEN_EMBEDDINGS_SIZE
+        return self.PATH_EMBEDDINGS_SIZE + 4 * self.TOKEN_EMBEDDINGS_SIZE
 
     @property
     def is_training(self) -> bool:

@@ -14,6 +14,7 @@ class VocabType(Enum):
     Token = 1
     Target = 2
     Path = 3
+    Type = 4
 
 
 SpecialVocabWordsType = Namespace
@@ -67,6 +68,8 @@ class Vocab:
 
     @classmethod
     def load_from_file(cls, vocab_type: VocabType, file, special_words: SpecialVocabWordsType) -> 'Vocab':
+        assert False
+        raise AssertionError
         special_words_as_unique_list = common.get_unique_list(special_words.__dict__.values())
 
         # Notice: From historical reasons, a saved vocab doesn't include special words,
@@ -141,11 +144,11 @@ class Vocab:
 
 WordFreqDictType = Dict[str, int]
 
-
 class Code2VecWordFreqDicts(NamedTuple):
     token_to_count: WordFreqDictType
     path_to_count: WordFreqDictType
     target_to_count: WordFreqDictType
+    type_to_count: WordFreqDictType
 
 
 class Code2VecVocabs:
@@ -154,6 +157,7 @@ class Code2VecVocabs:
         self.token_vocab: Optional[Vocab] = None
         self.path_vocab: Optional[Vocab] = None
         self.target_vocab: Optional[Vocab] = None
+        self.type_vocab: Optional[Vocab] = None
 
         # Used to avoid re-saving a non-modified vocabulary to a path it is already saved in.
         self._already_saved_in_paths: Set[str] = set()
@@ -163,6 +167,7 @@ class Code2VecVocabs:
     def _load_or_create(self):
         assert self.config.is_training or self.config.is_loading
         if self.config.is_loading:
+            assert False
             vocabularies_load_path = self.config.get_vocabularies_path_from_model_path(self.config.MODEL_LOAD_PATH)
             if not os.path.isfile(vocabularies_load_path):
                 raise ValueError(
@@ -174,6 +179,7 @@ class Code2VecVocabs:
 
     def _load_from_path(self, vocabularies_load_path: str):
         assert os.path.exists(vocabularies_load_path)
+        assert False
         self.config.log('Loading model vocabularies from: `%s` ... ' % vocabularies_load_path)
         with open(vocabularies_load_path, 'rb') as file:
             self.token_vocab = Vocab.load_from_file(
@@ -185,6 +191,9 @@ class Code2VecVocabs:
         self.config.log('Done loading model vocabularies.')
         self._already_saved_in_paths.add(vocabularies_load_path)
 
+    # 2020-05-17 06:31:30,525 INFO     Created token vocab. size: 848159
+    # 2020-05-17 06:32:11,058 INFO     Created path vocab. size: 314762
+    # 2020-05-17 06:32:18,652 INFO     Created target vocab. size: 204483
     def _create_from_word_freq_dict(self):
         word_freq_dict = self._load_word_freq_dict()
         self.config.log('Word frequencies dictionaries loaded. Now creating vocabularies.')
@@ -200,10 +209,15 @@ class Code2VecVocabs:
             VocabType.Target, word_freq_dict.target_to_count, self.config.MAX_TARGET_VOCAB_SIZE,
             special_words=self._get_special_words_by_vocab_type(VocabType.Target))
         self.config.log('Created target vocab. size: %d' % self.target_vocab.size)
+        self.type_vocab = Vocab.create_from_freq_dict(
+            VocabType.Type, word_freq_dict.type_to_count, self.config.MAX_TOKEN_VOCAB_SIZE,
+            special_words=self._get_special_words_by_vocab_type(VocabType.Token))
+        self.config.log('Created *type* vocab. size: %d' % self.type_vocab.size)
 
     def _get_special_words_by_vocab_type(self, vocab_type: VocabType) -> SpecialVocabWordsType:
         if not self.config.SEPARATE_OOV_AND_PAD:
             return _SpecialVocabWords_JoinedOovPad
+        assert False
         if vocab_type == VocabType.Target:
             return _SpecialVocabWords_OnlyOov
         return _SpecialVocabWords_SeparateOovPad
@@ -215,6 +229,7 @@ class Code2VecVocabs:
             self.token_vocab.save_to_file(file)
             self.target_vocab.save_to_file(file)
             self.path_vocab.save_to_file(file)
+            self.type_vocab.save_to_file(file)
         self._already_saved_in_paths.add(vocabularies_save_path)
 
     def _load_word_freq_dict(self) -> Code2VecWordFreqDicts:
@@ -224,10 +239,11 @@ class Code2VecVocabs:
             token_to_count = pickle.load(file)
             path_to_count = pickle.load(file)
             target_to_count = pickle.load(file)
+            type_to_count = pickle.load(file)
         self.config.log('Done loading word frequencies dictionaries.')
         # assert all(isinstance(item, WordFreqDictType) for item in {token_to_count, path_to_count, target_to_count})
         return Code2VecWordFreqDicts(
-            token_to_count=token_to_count, path_to_count=path_to_count, target_to_count=target_to_count)
+            token_to_count=token_to_count, path_to_count=path_to_count, target_to_count=target_to_count, type_to_count=type_to_count)
 
     def get(self, vocab_type: VocabType) -> Vocab:
         if not isinstance(vocab_type, VocabType):
@@ -238,3 +254,5 @@ class Code2VecVocabs:
             return self.target_vocab
         if vocab_type == VocabType.Path:
             return self.path_vocab
+        if vocab_type == VocabType.Type:
+            return self.type_vocab

@@ -46,6 +46,7 @@ class Code2VecModelBase(abc.ABC):
         self._log_model_configuration()
         self.vocabs = Code2VecVocabs(config)
         self.vocabs.target_vocab.get_index_to_word_lookup_table()  # just to initialize it (if not already initialized)
+        self.vocabs.type_vocab.get_index_to_word_lookup_table()  # just to initialize it (if not already initialized)
         self._load_or_create_inner_model()
         self._initialize()
 
