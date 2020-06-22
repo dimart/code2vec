@@ -67,6 +67,8 @@ class Vocab:
 
     @classmethod
     def load_from_file(cls, vocab_type: VocabType, file, special_words: SpecialVocabWordsType) -> 'Vocab':
+        assert False
+        raise AssertionError
         special_words_as_unique_list = common.get_unique_list(special_words.__dict__.values())
 
         # Notice: From historical reasons, a saved vocab doesn't include special words,
@@ -141,7 +143,7 @@ class Vocab:
 
 WordFreqDictType = Dict[str, int]
 
-
+# TODO: ADD TYPE_TO_COUNT
 class Code2VecWordFreqDicts(NamedTuple):
     token_to_count: WordFreqDictType
     path_to_count: WordFreqDictType
@@ -185,6 +187,9 @@ class Code2VecVocabs:
         self.config.log('Done loading model vocabularies.')
         self._already_saved_in_paths.add(vocabularies_load_path)
 
+    # 2020-05-17 06:31:30,525 INFO     Created token vocab. size: 848159
+    # 2020-05-17 06:32:11,058 INFO     Created path vocab. size: 314762
+    # 2020-05-17 06:32:18,652 INFO     Created target vocab. size: 204483
     def _create_from_word_freq_dict(self):
         word_freq_dict = self._load_word_freq_dict()
         self.config.log('Word frequencies dictionaries loaded. Now creating vocabularies.')
@@ -220,6 +225,7 @@ class Code2VecVocabs:
     def _load_word_freq_dict(self) -> Code2VecWordFreqDicts:
         assert self.config.is_training
         self.config.log('Loading word frequencies dictionaries from: %s ... ' % self.config.word_freq_dict_path)
+        # TODO: LOAD TYPE_TO_COUNT
         with open(self.config.word_freq_dict_path, 'rb') as file:
             token_to_count = pickle.load(file)
             path_to_count = pickle.load(file)

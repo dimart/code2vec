@@ -70,8 +70,22 @@ class Code2VecModel(Code2VecModelBase):
         self.sess.run(input_iterator_reset_op)
         time.sleep(1)
         self.log('Started reader...')
+
+        training_logger = None
+        # os.makedirs('awesome_logs/', exist_ok=True)
+        # loss_log_path = 'awesome_logs/losses_log' + common.now_str()[:-2] + '.csv'
+        self.log("RAW LOG PATHS:")
+        # self.log(loss_log_path)
+        if self.config.USE_TENSORBOARD:
+            log_dir = "logs/scalars/train_" + common.now_str()[:-2]
+            self.log(log_dir)
+            training_logger = tf.summary.create_file_writer(log_dir)
+            self.sess.run(training_logger.init())
+            training_logger.set_as_default()
+
         # run evaluation in a loop until iterator is exhausted.
         try:
+            epoch_losses = []
             while True:
                 # Each iteration = batch. We iterate as long as the tf iterator (reader) yields batches.
                 batch_num += 1
@@ -80,6 +94,7 @@ class Code2VecModel(Code2VecModelBase):
                 _, batch_loss = self.sess.run([optimizer, train_loss])
 
                 sum_loss += batch_loss
+                epoch_losses.append(batch_loss)
                 if batch_num % self.config.NUM_BATCHES_TO_LOG_PROGRESS == 0:
                     self._trace_training(sum_loss, batch_num, multi_batch_start_time)
                     # Uri: the "shuffle_batch/random_shuffle_queue_Size:0" op does not exist since the migration to the new reader.
@@ -95,6 +110,24 @@ class Code2VecModel(Code2VecModelBase):
                     evaluation_results = self.evaluate()
                     evaluation_results_str = (str(evaluation_results).replace('topk', 'top{}'.format(
                         self.config.TOP_K_WORDS_CONSIDERED_DURING_PREDICTION)))
+
+                    epoch_mean_train_loss = np.mean(epoch_losses) / self.config.TRAIN_BATCH_SIZE
+                    epoch_losses.clear()
+                    print(f'Losses: train: {epoch_mean_train_loss}, validation: {evaluation_results.loss}')
+                    # with open(loss_log_path, 'at') as loss_log_file:
+                    #     loss_log_file.write(f'{epoch_mean_train_loss},{evaluation_results.loss}\n')
+                    if self.config.USE_TENSORBOARD:
+                        self.sess.run([
+                            tf.summary.scalar('precision', evaluation_results.subtoken_precision, step=epoch_num),
+                            tf.summary.scalar('recall', evaluation_results.subtoken_recall, step=epoch_num),
+                            tf.summary.scalar('f1', evaluation_results.subtoken_f1, step=epoch_num),
+                            tf.summary.scalar('train_loss', epoch_mean_train_loss, step=epoch_num),
+                            # tf.summary.scalar('validation_loss', evaluation_results.loss, step=epoch_num),
+                        ])
+                        self.sess.run([tf.summary.scalar(f'top{i}_acc', top_i_acc, step=epoch_num)
+                                       for i, top_i_acc in enumerate(evaluation_results.topk_acc)])
+                        self.sess.run(training_logger.flush())
+
                     self.log('After {nr_epochs} epochs -- {evaluation_results}'.format(
                         nr_epochs=epoch_num,
                         evaluation_results=evaluation_results_str
